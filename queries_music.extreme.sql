@@ -33,5 +33,6 @@ CREATE TABLE tracks (
         REFERENCES genre(id_genre)
         );
     
-        
-        
+
+INSERT INTO genre 
+	VALUES (1, "rock"), (2, "indie"), (3, "latin"), (4, "reggaeton"), (5, "hip-hop")
