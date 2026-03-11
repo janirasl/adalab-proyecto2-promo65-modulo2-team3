@@ -14,7 +14,7 @@ CREATE TABLE artists (
     artist_bio LONGTEXT,
     artist_listeners INT,
     artist_playcount INT,
-    similar_artist VARCHAR(45),
+    similar_artist VARCHAR(100),
     PRIMARY KEY (id_artist)
 );
 
