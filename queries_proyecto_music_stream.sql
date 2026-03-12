@@ -46,22 +46,21 @@ SELECT artist_name AS artista, artist_listeners AS oyentes
 	ORDER BY artist_listeners DESC
 	LIMIT 5;
     
--- 6. ¿Cuál es el artista más valorado de los años pares de mi selección?    
+-- 6. ¿Cuál es el artista más valorado de cada año?    
 SELECT año, artista, promedio_total
-FROM (
-    SELECT t.year AS año, a.artist_name AS artista, -- Calculamos la métrica de valoración --
-    ROUND((a.artist_listeners + a.artist_playcount) / 2, 2) AS promedio_total, -- calcula el puntaje de éxito del artista sumando sus oyentes y reproducciones 
-	RANK() OVER (
-		PARTITION BY t.year -- divide por años 
-		ORDER BY (a.artist_listeners + a.artist_playcount) / 2 DESC -- ordena el promedio de los artistas de mayor a menor 
-        ) AS posicion -- a cada artista le da un número 
-    FROM tracks AS t
-    INNER JOIN artists AS a ON t.id_artist = a.id_artist
-    WHERE t.year % 2 = 0 -- de esta forma descartamos los años impares 
-    GROUP BY t.year, a.id_artist -- organiza la info para que tengamos una fila por cada artista en cada año 
-) AS ranking_anual
-WHERE posicion = 1 -- Filtramos para quedarnos solo con el ganador de cada año
-ORDER BY año DESC;
+	FROM (
+		SELECT t.year AS año, a.artist_name AS artista, 
+			ROUND((a.artist_listeners + a.artist_playcount) / 2, 2) AS promedio_total, -- calculamos el promedio del éxito de los artistas
+			RANK() OVER (PARTITION BY t.year  
+							ORDER BY (a.artist_listeners + a.artist_playcount) / 2 DESC -- dividimos por año 
+							) AS posicion 
+		FROM tracks AS t
+		INNER JOIN artists AS a 
+			ON t.id_artist = a.id_artist
+		GROUP BY t.year, a.id_artist 
+	) AS ranking_anual
+	WHERE posicion = 1 -- limitamos el mayor de cada ranking 
+	ORDER BY año DESC;
 
 -- 7. ¿Cuales son los artistas similares que se repite al menos cinco veces? 
 SELECT a.similar_artist AS artista_similar, COUNT(a.similar_artist) AS repeticiones
