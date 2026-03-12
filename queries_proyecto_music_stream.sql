@@ -1,83 +1,99 @@
 -- Realiza consultas SQL para responder a las siguientes preguntas:
 
- -- ¿Cuál es el artista con más albums? .. canciones?
- SELECT 
-a.artist_name,
-COUNT(t.id_track) AS total_albums
-FROM tracks t
-JOIN artists a ON t.id_artist = a.id_artist
-GROUP BY a.artist_name
-ORDER BY total_albums DESC
-LIMIT 1; --  BAD BUNNY 96   es el que ams canciones tiene!.
+ -- 1. ¿Cuál es el artista con más canciones?
+SELECT a.artist_name AS artista, COUNT(t.id_track) AS total_canciones 
+	FROM tracks AS t
+	INNER JOIN artists AS a -- inner join para unir los datos que coincidan entre la tabla artistas y canciones 
+		ON t.id_artist = a.id_artist
+	GROUP BY a.artist_name -- agrupamos el número de canciones por artista 
+	ORDER BY total_canciones DESC -- ordenamos para que salga el que tiene más canciones primero 
+    LIMIT 1; -- Bad Bunny: 96 canciones -- limitamos a 1 para que solo salga el que tiene más canciones 
+    
+-- 2. Y por género, ¿cuál es el artista con más canciones?
+SELECT genre_name AS género, artist_name AS artista, total_canciones
+	FROM ( -- crea una tabla temporal donde cada artista tiene un puesto en su género 
+		SELECT g.genre_name, a.artist_name, COUNT(t.id_track) AS total_canciones, -- cuenta el número de canciones 
+			RANK() OVER 
+				(PARTITION BY g.genre_name ORDER BY COUNT(t.id_track) DESC) AS ranking -- crea un ranking dividiendo a los artistas por género y ordenándolos de mayor a menor 
+		FROM genre g
+		INNER JOIN tracks t 
+			ON g.id_genre = t.id_genre -- unimos las tablas géneros y artistas 
+		INNER JOIN artists a 
+			ON t.id_artist = a.id_artist
+		GROUP BY g.genre_name, a.id_artist
+	) AS subconsulta
+	WHERE ranking = 1; -- limitamos a 1
 
+ -- 3. ¿Qué género es el mejor valorado?
+SELECT g.genre_name AS género, AVG(a.artist_listeners) AS oyentes_promedio -- usamos average para sacar el promedio de oyentes 
+	FROM tracks AS t
+	INNER JOIN artists AS a 
+		ON t.id_artist = a.id_artist
+	INNER JOIN genre AS g 
+		ON t.id_genre = g.id_genre
+	GROUP BY g.genre_name
+	ORDER BY oyentes_promedio DESC;
 
- -- ¿Qué género es el mejor valorado?
-SELECT 
-g.genre_name,
-AVG(a.artist_listeners) AS promedio_listeners
-FROM tracks t
-JOIN artists a ON t.id_artist = a.id_artist
-JOIN genre g ON t.id_genre = g.id_genre
-GROUP BY g.genre_name
-ORDER BY promedio_listeners DESC
-LIMIT 1; -- mejor genero valorado es rock con un promedio 176733.
+ -- 4. ¿En qué año se lanzaron más canciones?
+SELECT year AS año, COUNT(track_name) AS canciones_lanzadas
+	FROM tracks
+	GROUP BY year
+    ORDER BY COUNT(track_name) DESC;
 
+-- 5. ¿Cuál es el top 5 de artistas con más oyentes?  
+SELECT artist_name AS artista, artist_listeners AS oyentes
+	FROM artists
+	ORDER BY artist_listeners DESC
+	LIMIT 5;
+    
+-- 6. ¿Cuál es el artista más valorado de los años pares de mi selección?    
+SELECT año, artista, promedio_total
+FROM (
+    SELECT t.year AS año, a.artist_name AS artista, -- Calculamos la métrica de valoración --
+    ROUND((a.artist_listeners + a.artist_playcount) / 2, 2) AS promedio_total, -- calcula el puntaje de éxito del artista sumando sus oyentes y reproducciones 
+	RANK() OVER (
+		PARTITION BY t.year -- divide por años 
+		ORDER BY (a.artist_listeners + a.artist_playcount) / 2 DESC -- ordena el promedio de los artistas de mayor a menor 
+        ) AS posicion -- a cada artista le da un número 
+    FROM tracks AS t
+    INNER JOIN artists AS a ON t.id_artist = a.id_artist
+    WHERE t.year % 2 = 0 -- de esta forma descartamos los años impares 
+    GROUP BY t.year, a.id_artist -- organiza la info para que tengamos una fila por cada artista en cada año 
+) AS ranking_anual
+WHERE posicion = 1 -- Filtramos para quedarnos solo con el ganador de cada año
+ORDER BY año DESC;
 
- -- ¿En qué año se lanzaron más álbumes?
+-- 7. ¿Cuales son los artistas similares que se repite al menos cinco veces? 
+SELECT a.similar_artist AS artista_similar, COUNT(a.similar_artist) AS repeticiones
+	FROM artists AS a 
+    GROUP BY a.similar_artist 
+    HAVING COUNT(a.similar_artist) >= 5
+    ORDER BY repeticiones DESC;
 
--- ¿Cuál es la canción mejor valorada?
-
--- ¿Cuál es el artista con más valoración?
-SELECT 
-artist_name,
-artist_listeners
-FROM artists
-ORDER BY artist_listeners DESC
-LIMIT 20;
--- ¿Cuál es el album más valorado de los años pares de mi selección?
-
--- ¿Qué país tiene má artistas? (ordenar por popularidad)
-
--- ¿Qué artista estuvo má tiempo y cuántos albums tiene?
-
-SELECT * FROM artists;
-SELECT * FROM tracks;
--- ver cuantos artistas hay en el genero regaeton.
-
-SELECT COUNT(DISTINCT a.id_artist) AS total_artistas_reggaeton
-FROM tracks t
-JOIN artists a ON t.id_artist = a.id_artist
-JOIN genre g ON t.id_genre = g.id_genre
-WHERE g.genre_name = 'reggaeton'; -- 61 artistas.
-
--- canciones totales--
-select COUNT(*) total_canciones
-FROM tracks; -- 5636 canciones.
--- artistas totales--
-
-SELECT COUNT(*)total_artistas
-FROM artists; -- 2001 artistas.
--- quien es el mas caciones tiene?--
-SELECT 
-a.artist_name,
-COUNT(t.id_track) AS total_albums
-FROM tracks t
-JOIN artists a ON t.id_artist = a.id_artist
-GROUP BY a.artist_name
-ORDER BY total_albums DESC
-LIMIT 1; --  BAD BUNNY  es el que ams canciones tiene!.
-
--- ¿ que genero fue mas popular en 2019? --
- SELECT 
-g.genre_name,
-AVG(a.artist_listeners) AS popularidad_media
-FROM tracks t
-JOIN artists a ON t.id_artist = a.id_artist
-JOIN genre g ON t.id_genre = g.id_genre
-WHERE t.year = 2017
-GROUP BY g.genre_name
-ORDER BY popularidad_media DESC
-LIMIT 5;
-
+--  8. ¿Cuántos artistas españoles hay en nuestra bbdd? Y agrupados por género. 
+SELECT DISTINCT(g.genre_name) AS género, a.artist_name AS artista
+	FROM tracks AS t
+	INNER JOIN artists AS a 
+		ON t.id_artist = a.id_artist
+	INNER JOIN genre AS g 
+		ON t.id_genre = g.id_genre
+	WHERE a.artist_bio REGEXP '\\b(español|española|españa|madrid|barcelona)\\b'; -- usamos regex para buscar patrones 
+	
+SELECT g.genre_name AS Género, COUNT(DISTINCT a.id_artist) AS Total_Artistas_Españoles
+	FROM tracks AS t
+		INNER JOIN artists AS a 
+			ON t.id_artist = a.id_artist
+		INNER JOIN genre AS g 
+			ON t.id_genre = g.id_genre
+	WHERE a.artist_bio REGEXP '\\b(español|española|españa|madrid|barcelona)\\b'
+	GROUP BY g.genre_name
+	ORDER BY Total_Artistas_Españoles DESC;
+    
+    
+    
+    
+    
+    
+   
 
 
